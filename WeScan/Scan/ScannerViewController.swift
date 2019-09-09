@@ -132,6 +132,7 @@ final class ScannerViewController: UIViewController {
     // MARK: - Setups
     
     private func setupViews() {
+        view.backgroundColor = .black
         view.layer.addSublayer(videoPreviewLayer)
         quadView.translatesAutoresizingMaskIntoConstraints = false
         quadView.editable = false
