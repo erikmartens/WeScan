@@ -60,7 +60,38 @@ public final class ImageScannerController: UINavigationController {
         return .portrait
     }
     
-    public required init(image: UIImage? = nil, delegate: ImageScannerControllerDelegate? = nil) {
+  public required init(image: UIImage? = nil, showEdit: Bool = true, delegate: ImageScannerControllerDelegate? = nil) {
+        func showEditViewControllerOrComplete(with image: UIImage, quad: Quadrilateral?, rotateImage: Bool, showEdit: Bool) {
+            switch showEdit {
+            case true:
+                let editViewController = EditScanViewController(image: image, quad: quad, rotateImage: rotateImage)
+                setViewControllers([editViewController], animated: true)
+            case false:
+                guard let quad = quad, let ciImage = CIImage(image: image) else {
+                  imageScannerDelegate?.imageScannerController(self, didFailWithError: ImageScannerControllerError.detection)
+                  return
+                }
+                let cgOrientation = CGImagePropertyOrientation(image.imageOrientation)
+                let orientedImage = ciImage.oriented(forExifOrientation: Int32(cgOrientation.rawValue))
+                var cartesianQuad = quad.toCartesian(withHeight: image.size.height)
+                cartesianQuad.reorganize()
+              
+                let filteredImage = orientedImage.applyingFilter("CIPerspectiveCorrection", parameters: [
+                  "inputTopLeft": CIVector(cgPoint: cartesianQuad.bottomLeft),
+                  "inputTopRight": CIVector(cgPoint: cartesianQuad.bottomRight),
+                  "inputBottomLeft": CIVector(cgPoint: cartesianQuad.topLeft),
+                  "inputBottomRight": CIVector(cgPoint: cartesianQuad.topRight)
+                  ])
+              
+                let croppedImage = UIImage.from(ciImage: filteredImage)
+                let results = ImageScannerResults(detectedRectangle: quad,
+                                                  originalScan: ImageScannerScan(image: image),
+                                                  croppedScan: ImageScannerScan(image: croppedImage),
+                                                  enhancedScan: nil)
+                imageScannerDelegate?.imageScannerController(self, didFinishScanningWithResults: results)
+            }
+        }
+    
         super.init(rootViewController: ScannerViewController())
         
         self.imageScannerDelegate = delegate
@@ -88,14 +119,12 @@ public final class ImageScannerController: UINavigationController {
                 // Use the VisionRectangleDetector on iOS 11 to attempt to find a rectangle from the initial image.
                 VisionRectangleDetector.rectangle(forImage: ciImage, orientation: orientation) { (quad) in
                     detectedQuad = quad?.toCartesian(withHeight: orientedImage.extent.height)
-                    let editViewController = EditScanViewController(image: image, quad: detectedQuad, rotateImage: false)
-                    self.setViewControllers([editViewController], animated: true)
+                    showEditViewControllerOrComplete(with: image, quad: detectedQuad, rotateImage: false, showEdit: showEdit)
                 }
             } else {
                 // Use the CIRectangleDetector on iOS 10 to attempt to find a rectangle from the initial image.
                 detectedQuad = CIRectangleDetector.rectangle(forImage: ciImage)?.toCartesian(withHeight: orientedImage.extent.height)
-                let editViewController = EditScanViewController(image: image, quad: detectedQuad, rotateImage: false)
-                setViewControllers([editViewController], animated: false)
+                showEditViewControllerOrComplete(with: image, quad: detectedQuad, rotateImage: false, showEdit: showEdit)
             }
         }
     }

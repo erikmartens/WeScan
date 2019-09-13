@@ -16,6 +16,8 @@ public enum ImageScannerControllerError: Error {
     case inputDevice
     /// An error occured when trying to capture a picture.
     case capture
+    /// An error occured when trying to detect a quadrilateral.
+    case detection
     /// Error when creating the CIImage.
     case ciImageCreation
 }
@@ -30,9 +32,11 @@ extension ImageScannerControllerError: LocalizedError {
             return "Could not setup input device."
         case .capture:
             return "Could not capture pitcure."
+        case .detection:
+            return "Could not detect a quadrilateral."
         case .ciImageCreation:
             return "Internal Error - Could not create CIImage"
-        }
+      }
     }
 
 }
